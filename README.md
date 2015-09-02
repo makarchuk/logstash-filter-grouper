@@ -1,86 +1,83 @@
-# Logstash Plugin
+Search Elasticsearch index for records that match some field in event create new one or update existing depending on was record found or not. 
+Can be used to aggregate events on some field.
 
-This is a plugin for [Logstash](https://github.com/elastic/logstash).
+I really need a better readme
 
-It is fully free and fully open source. The license is Apache 2.0, meaning you are pretty much free to use it however you want in whatever way.
+Config: 
+List of elasticsearch hosts to use for querying.
+  ```
+  config :hosts, :validate => :array
+  ```
 
-## Documentation
+Elasticsearch query string
+  ```
+  config :match_field, :validate => :string
+  ```
 
-Logstash provides infrastructure to automatically generate documentation for this plugin. We use the asciidoc format to write documentation so any comments in the source code will be first converted into asciidoc and then into html. All plugin documentation are placed under one [central location](https://www.elastic.co/guide/en/logstash/current/).
+Hash of fields to copy from old event (found via elasticsearch) into new event
+  ```
+  config :fields, :validate => :hash, :default => {}
+  ```
 
-- For formatting code or config example, you can use the asciidoc `[source,ruby]` directive
-- For more asciidoc formatting tips, see the excellent reference here https://github.com/elastic/docs#asciidoc-guide
+Basic Auth - username
+  ```
+  config :user, :validate => :string
+  ```
 
-## Need Help?
+Basic Auth - password
+  ```
+  config :password, :validate => :password
+  ```
 
-Need help? Try #logstash on freenode IRC or the https://discuss.elastic.co/c/logstash discussion forum.
+SSL
+  ```
+  config :ssl, :validate => :boolean, :default => false
+  ```
 
-## Developing
+SSL Certificate Authority file
+  ```
+  config :ca_file, :validate => :path
+  ```
 
-### 1. Plugin Developement and Testing
+Fields to copy to new document
+  ```
+  config :only_fields, :validate => :array, :default => []
+  ```
 
-#### Code
-- To get started, you'll need JRuby with the Bundler gem installed.
+Fields that will be excluded from result document. Don't work if :only_fields is set
+  ```
+  config :exclude, :validate => :array, :default => []
+  ```
+  
+Fields that will be stored as array in result document
+  ```
+  config :to_array, :validate => :array, :default => []
+  ```
 
-- Create a new plugin or clone and existing from the GitHub [logstash-plugins](https://github.com/logstash-plugins) organization. We also provide [example plugins](https://github.com/logstash-plugins?query=example).
+Hash of fields that needs to be incremented
+Key -- field in result documtn 
+Value -- field in event or number
+  ```
+  config :sum_fields, :validate => :hash, :default => {}
+  ```
+  
+  ```
+  config :inherit_fields, :validate => :array, :default => []
+  ```
 
-- Install dependencies
-```sh
-bundle install
-```
+Add fields. Executes BEFORE filter executing
+  ```
+  config :add_fields, :falidate =>:hash, :default => {}
+  ```
 
-#### Test
+  ```
+  config :remove_field, :falidate =>:array, :default => []
+  ```
 
-- Update your dependencies
+  ```
+  config :doc_index, :validate => :string
+  ```
 
-```sh
-bundle install
-```
-
-- Run tests
-
-```sh
-bundle exec rspec
-```
-
-### 2. Running your unpublished Plugin in Logstash
-
-#### 2.1 Run in a local Logstash clone
-
-- Edit Logstash `Gemfile` and add the local plugin path, for example:
-```ruby
-gem "logstash-filter-awesome", :path => "/your/local/logstash-filter-awesome"
-```
-- Install plugin
-```sh
-bin/plugin install --no-verify
-```
-- Run Logstash with your plugin
-```sh
-bin/logstash -e 'filter {awesome {}}'
-```
-At this point any modifications to the plugin code will be applied to this local Logstash setup. After modifying the plugin, simply rerun Logstash.
-
-#### 2.2 Run in an installed Logstash
-
-You can use the same **2.1** method to run your plugin in an installed Logstash by editing its `Gemfile` and pointing the `:path` to your local plugin development directory or you can build the gem and install it using:
-
-- Build your plugin gem
-```sh
-gem build logstash-filter-awesome.gemspec
-```
-- Install the plugin from the Logstash home
-```sh
-bin/plugin install /your/local/plugin/logstash-filter-awesome.gem
-```
-- Start Logstash and proceed to test the plugin
-
-## Contributing
-
-All contributions are welcome: ideas, patches, documentation, bug reports, complaints, and even something you drew up on a napkin.
-
-Programming is not a required skill. Whatever you've seen about open source and maintainers or community members  saying "send patches or die" - you will not see that here.
-
-It is more important to the community that you are able to contribute.
-
-For more information about contributing, see the [CONTRIBUTING](https://github.com/elastic/logstash/blob/master/CONTRIBUTING.md) file.
+  ```
+  config :doc_type, :validate => :string
+  ```
