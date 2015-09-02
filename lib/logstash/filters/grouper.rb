@@ -33,7 +33,9 @@ class LogStash::Filters::Grouper < LogStash::Filters::Base
   config :ca_file, :validate => :path
 
   # Fields to copy to new document
-  config :only_fields, :validate => :array, :default => []
+  # key -- source field, value -- result field
+  # If value is empty result field = source_field
+  config :only_fields, :validate => :hash, :default => {}
 
   # Fields that will be excluded from result document. Don't work if :only_fields is set
   config :exclude, :validate => :array, :default => []
@@ -88,37 +90,43 @@ class LogStash::Filters::Grouper < LogStash::Filters::Base
     return unless filter?(event)
     begin
       begin
-        id = ""
-        grouped_event = {}
-        fields = event.to_hash.keys.reject do |f| 
-          if @only_fields.count > 0 
-            !@only_fields.include? f
-          else
-            @exclude.include? f
-          end
-        end
-        @my_little_logger.warn fields
+        id = event[@match_field]
+
+
         @add_fields.each do |k, v|
-          event[k] = v unless event.to_hash.has_key? k
+          event[k] = v if event[k].nil?
         end
-        event.to_hash.each do |k,v|
-          if @to_array.include? k
-            grouped_event[k] =  [copy(v)]
-          elsif fields.include? k
-            grouped_event[k] = copy v
+        
+        if only_fields.count > 0
+          grouped_event = LogStash::Event.new {}
+          grouped_event.cancel
+          @only_fields.each do |k, v|
+            v = k if v.strip.empty?
+            grouped_event[v] = event[k]
           end
-          @sum_fields.each do |k, v|
-            if v.kind_of? Numeric
-              grouped_event[k] = v
-            else
-              grouped_event[k] = copy event.to_hash[v] if event.to_hash.has_key? v
-            end
+        else
+          grouped_event = event.clone
+          grouped_event.cancel
+          @exclude.each do |f| 
+            grouped_event.remove f
           end
-          id = v if k == @match_field
         end
+
+        @to_array.each do |k|
+          grouped_event[k] = [event[k]]
+        end
+
+        @sum_fields.each do |k, v|
+          if v.kind_of? Numeric
+            grouped_event[k] = v
+          else
+            grouped_event[k] = event[v]
+          end
+        end
+
         @my_little_logger.warn event.to_hash
-        @my_little_logger.warn grouped_event
-        @client.create index: @doc_index, type: @doc_type, body: grouped_event, consistency: "all", id: id
+        @my_little_logger.warn grouped_event.to_hash
+        @client.create index: @doc_index, type: @doc_type, body: grouped_event.to_hash, consistency: "all", id: id
       rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
         script = {script: ""}
         @sum_fields.each do |k, v|
@@ -141,14 +149,11 @@ class LogStash::Filters::Grouper < LogStash::Filters::Base
       @remove_field.each do |field|
         event.remove(field)
       end
+      @my_little_logger.error "canceled: #{event.canceled?}"
     rescue => e
       @my_little_logger.error e
       @my_little_logger.error e.message
       @my_little_logger.error e.backtrace
     end
   end # def filter
-
-  def copy v
-    begin v.clone rescue v end
-  end
 end # class LogStash::Filters::Elasticsearch
