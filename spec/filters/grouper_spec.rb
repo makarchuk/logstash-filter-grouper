@@ -2,13 +2,13 @@
 
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/plugin"
-require "logstash/filters/elasticsearch"
+require "logstash/filters/grouper"
 
-describe LogStash::Filters::Elasticsearch do
+describe LogStash::Filters::Grouper do
 
   context "registration" do
 
-    let(:plugin) { LogStash::Plugin.lookup("filter", "elasticsearch").new({}) }
+    let(:plugin) { LogStash::Plugin.lookup("filter", "grouper").new({}) }
 
     it "should not raise an exception" do
       expect {plugin.register}.to_not raise_error
