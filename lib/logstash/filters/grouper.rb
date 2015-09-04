@@ -132,7 +132,7 @@ class LogStash::Filters::Grouper < LogStash::Filters::Base
       @to_array.each do |field|
         script << "ctx._source['#{field}'] += '#{grouped_event[field][0]}'; "  
       end
-      @client.update index: @doc_index, type: @doc_type, body: {script: script}, upsert:{grouped_event.to_hash}, consistency: "all", id: id, lang: "python", retry_on_conflict: 5
+      @client.update index: @doc_index, type: @doc_type, body: {script: script, upsert: grouped_event.to_hash}, consistency: "all", id: id, lang: "python", retry_on_conflict: 5
       record = @client.get index: @doc_index, type: @doc_type, id: id
       @inherit_fields.each do |f| 
         event[f] = record[f] if record.has_key? f
