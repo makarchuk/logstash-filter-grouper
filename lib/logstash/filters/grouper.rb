@@ -89,59 +89,50 @@ class LogStash::Filters::Grouper < LogStash::Filters::Base
   def filter(event)
     return unless filter?(event)
     begin
-      begin
-        id = event[@match_field]
+      id = event[@match_field]
 
-
-        @add_fields.each do |k, v|
-          event[k] = v if event[k].nil?
-        end
-        
-        if only_fields.count > 0
-          grouped_event = LogStash::Event.new {}
-          grouped_event.cancel
-          @only_fields.each do |k, v|
-            v = k if v.strip.empty?
-            grouped_event[v] = event[k]
-          end
-        else
-          grouped_event = event.clone
-          grouped_event.cancel
-          @exclude.each do |f| 
-            grouped_event.remove f
-          end
-        end
-
-        @to_array.each do |k|
-          grouped_event[k] = [event[k]]
-        end
-
-        @sum_fields.each do |k, v|
-          if v.kind_of? Numeric
-            grouped_event[k] = v
-          else
-            grouped_event[k] = event[v]
-          end
-        end
-
-        @my_little_logger.warn event.to_hash
-        @my_little_logger.warn grouped_event.to_hash
-        @client.create index: @doc_index, type: @doc_type, body: grouped_event.to_hash, consistency: "all", id: id
-      rescue Elasticsearch::Transport::Transport::Errors::Conflict => e
-        script = {script: ""}
-        @sum_fields.each do |k, v|
-          if v.kind_of? Numeric
-            script[:script] << "ctx._source['#{k}']+=#{v}; "
-          else
-            script[:script] << "ctx._source['#{k}'] += '#{grouped_event[v]}'; "
-          end
-        end
-        @to_array.each do |field|
-          script[:script] << "ctx._source['#{field}'] += '#{grouped_event[field][0]}'; "  
-        end
-        @my_little_logger.warn script
-        @client.update index: @doc_index, type: @doc_type, body: script, consistency: "all", id: id, lang: "python", retry_on_conflict: 5
+      @add_fields.each do |k, v|
+        event[k] = v if event[k].nil?
       end
+      
+      if only_fields.count > 0
+        grouped_event = LogStash::Event.new {}
+        grouped_event.cancel
+        @only_fields.each do |k, v|
+          v = k if v.strip.empty?
+          grouped_event[v] = event[k]
+        end
+      else
+        grouped_event = event.clone
+        grouped_event.cancel
+        @exclude.each do |f| 
+          grouped_event.remove f
+        end
+      end
+
+      @to_array.each do |k|
+        grouped_event[k] = [event[k]]
+      end
+
+      @sum_fields.each do |k, v|
+        if v.kind_of? Numeric
+          grouped_event[k] = v
+        else
+          grouped_event[k] = event[v]
+        end
+      end
+      script = ""
+      @sum_fields.each do |k, v|
+        if v.kind_of? Numeric
+          script << "ctx._source['#{k}']+=#{v}; "
+        else
+          script << "ctx._source['#{k}'] += '#{grouped_event[v]}'; "
+        end
+      end
+      @to_array.each do |field|
+        script << "ctx._source['#{field}'] += '#{grouped_event[field][0]}'; "  
+      end
+      @client.update index: @doc_index, type: @doc_type, body: {script: script}, upsert:{grouped_event.to_hash}, consistency: "all", id: id, lang: "python", retry_on_conflict: 5
       record = @client.get index: @doc_index, type: @doc_type, id: id
       @inherit_fields.each do |f| 
         event[f] = record[f] if record.has_key? f
@@ -149,7 +140,6 @@ class LogStash::Filters::Grouper < LogStash::Filters::Base
       @remove_field.each do |field|
         event.remove(field)
       end
-      @my_little_logger.error "canceled: #{event.canceled?}"
     rescue => e
       @my_little_logger.error e
       @my_little_logger.error e.message
